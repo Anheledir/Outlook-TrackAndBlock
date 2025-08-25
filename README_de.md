@@ -1,6 +1,6 @@
 # Outlook-TrackAndBlock
 
-![🇺🇸 Englische Version dieser Datei](/README_de.md)
+[🇺🇸 Englische Version dieser Datei](/README_de.md)
 
 PowerShell-Tool mit GUI **und** CLI, das über Outlook private „Tracking“-Termine anlegt/verlängert.  
 Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt“** – ideal als Stream-Deck-Action.

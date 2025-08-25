@@ -1,87 +1,88 @@
 # Outlook-TrackAndBlock
 
-PowerShell-Tool mit GUI **und** CLI, das über Outlook private „Tracking“-Termine anlegt/verlängert.  
-Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt“** – ideal als Stream-Deck-Action.
+![🇩🇪 German version of this file](/README_de.md)
 
-![Track & Block – Screenshot](/assets/screenshot.png?raw=true)
+PowerShell tool with both **GUI** and **CLI** that creates/extends private "tracking" appointments in Outlook.  
+This automatically sets **Microsoft Teams** presence to **"Busy"** — perfect as a Stream Deck action.
 
+![Track & Block — Screenshot](/assets/screenshot.png?raw=true)
 
 ## ✨ Features
-- 🗓️ **Neue Fokus-Blöcke** starten (30/60/90/120 Min) – F1–F4
-- ➕ **Laufenden Termin fortsetzen** (+30/+60/+90/+120 Min) – F5–F8
-- 🔒 Termine sind ~~**privat**~~ und mit Kategorie **„Tracking“**
-- 🖥️ **Dark-ish** WinForms-Dialog, DPI-aware, Fokus-Fix (AttachThreadInput)
-- 🧰 **CLI-Modus** für direkte Nutzung ohne GUI (z. B. Stream Deck)
-- 🪟 Konsole wird **versteckt**; Start mit `-WindowStyle Hidden`
+- 🗓️ **Start new focus blocks** (30/60/90/120 min) — F1–F4
+- ➕ **Extend the current appointment** (+30/+60/+90/+120 min) — F5–F8
+- 🔒 Appointments are ~~**private**~~ and categorized **"Tracking"**
+- 🖥️ **Dark-ish** WinForms dialog, DPI-aware, focus fix (AttachThreadInput)
+- 🧰 **CLI mode** for direct use without GUI (e.g., Stream Deck)
+- 🪟 Console is **hidden**; start with `-WindowStyle Hidden`
 
-## ⚙️ Voraussetzungen
+## ⚙️ Requirements
 - Windows 10/11
 - Outlook Desktop (Microsoft 365 / Office)
-- PowerShell 5.1 **oder** 7.x (WinForms vorhanden)
+- PowerShell 5.1 **or** 7.x (WinForms available)
 
 ## 🚀 Quickstart
-1. Script `Outlook_Timetracker.ps1` aus `/scripts` speichern.
-2. Testen:
+1. Save the script `Outlook_Timetracker.ps1` from `/scripts`.
+2. Test:
 
 ~~~powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Pfad\Outlook_Timetracker.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Path\Outlook_Timetracker.ps1"
 ~~~
 
-3. Taste F1/F2/F3/F4: neuen Block starten · F5–F8: laufenden Termin verlängern.
+3. Press F1/F2/F3/F4 to start a new block · F5–F8 to extend the running appointment.
 
 ## 🎛️ Stream Deck Integration
-- **Aktion:** System → *Programm öffnen*
-- **Programm:** `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
-- **Argumente (GUI):**
+- **Action:** System → *Open*
+- **Program:** `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
+- **Arguments (GUI):**
 
 ~~~powershell
--NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Pfad\Outlook_Timetracker.ps1"
+-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Path\Outlook_Timetracker.ps1"
 ~~~
 
-- **Argumente (CLI – ohne GUI, 90 Min „Deep Work“):**
+- **Arguments (CLI — no GUI, 90 min "Deep Work"):**
 
 ~~~powershell
--NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Pfad\Outlook_Timetracker.ps1" -Subject "Deep Work" -StartMinutes 90
+-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Path\Outlook_Timetracker.ps1" -Subject "Deep Work" -StartMinutes 90
 ~~~
 
-- **Argumente (nur verlängern, +30 Min):**
+- **Arguments (extend only, +30 min):**
 
 ~~~powershell
--NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Pfad\Outlook_Timetracker.ps1" -ExtendMinutes 30
+-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Path\Outlook_Timetracker.ps1" -ExtendMinutes 30
 ~~~
 
-## 🔧 Konfiguration (im Script Kopfbereich)
-- `$CategoryName = "Tracking"` (wird bei Bedarf automatisch angelegt)
-- `$DurationsStart / $DurationsExtend` – Button-Minuten
-- `$BtnWidth / $BtnHeight` – Größe der Buttons
-- Theme-Farben (dunkel/dezent) sind als Variablen definiert
-- Optional: `$SilentExtendDefault = $true` (MessageBox nach „Extend“ abschalten)
+## 🔧 Configuration (at the top of the script)
+- `$CategoryName = "Tracking"` (created automatically if missing)
+- `$DurationsStart / $DurationsExtend` — button minutes
+- `$BtnWidth / $BtnHeight` — button sizes
+- Theme colors (dark/subtle) are defined as variables
+- Optional: `$SilentExtendDefault = $true` (disable MessageBox after "Extend")
 
-## 🧪 CLI-Parameter (optional)
+## 🧪 CLI Parameters (optional)
 ~~~powershell
--Subject <string>        # Betreff/Name der Aufgabe
--StartMinutes <int>      # Startet sofort einen Block (GUI wird übersprungen)
--ExtendMinutes <int>     # Verlängert den aktuell laufenden Termin
+-Subject <string>        # Task/subject name
+-StartMinutes <int>      # Start a block immediately (skips GUI)
+-ExtendMinutes <int>     # Extend the currently running appointment
 ~~~
 
 ## ❓ FAQ
-**Setzt das Tool „Nicht stören (DND)“ in Teams?**  
-Nein – regulär setzt Outlook nur **„Beschäftigt“**. Für echtes Teams-DND bräuchte es separate Maßnahmen (z. B. Windows-Fokusassistent oder UI-Automation).
+**Does this set Teams "Do Not Disturb (DND)"?**  
+No — Outlook calendar sets Teams to **"Busy"**. For true Teams DND use separate measures (e.g., Windows Focus Assist or UI automation).
 
-**Warum „US-Datumsformat“ intern?**  
-Outlook-Restrict benötigt das Format `MM/dd/yyyy HH:mm`. Das Script kümmert sich darum.
+**Why the US date format internally?**  
+Outlook's `Restrict` API requires `MM/dd/yyyy HH:mm`. The script handles this for you.
 
 ## 🛠️ Troubleshooting
-- **ExecutionPolicy**: Start mit `-ExecutionPolicy Bypass`.
-- **Kategorie nicht sichtbar**: In Outlook die Spalte „Kategorien“ in der Kalenderansicht einblenden.
-- **Kein laufender Termin erkannt**: Prüfe, ob ein Termin *jetzt* Start ≤ Jetzt < End hat (Serientermine unterstützt).
-- **Fokus liegt nicht auf dem Dialog**: Der *Foreground-Fix* ist eingebaut; bei exotischen Desktop-Policies ggf. Stream Deck auf „Als Administrator ausführen“ stellen.
+- **ExecutionPolicy:** Start with `-ExecutionPolicy Bypass`.
+- **Category not visible:** In Outlook calendar view, enable the "Categories" column.
+- **No running appointment detected:** Ensure there's an event with Start ≤ now < End (recurrences supported).
+- **Dialog not focused:** The foreground fix is included; if desktop policies are strict, try running Stream Deck "as Administrator".
 
-## 🔐 Datenschutz
-- Termine werden **lokal** via Outlook-COM erstellt (keine Cloud-API).
-- Es werden **keine Daten extern übertragen**.
+## 🔐 Privacy
+- Appointments are created **locally** via Outlook COM (no cloud API).
+- **No data leaves your machine.**
 
-## 📦 Struktur
+## 📦 Structure
 ~~~
 /scripts/Outlook_Timetracker.ps1
 /assets/screenshot.png
@@ -92,11 +93,11 @@ Outlook-Restrict benötigt das Format `MM/dd/yyyy HH:mm`. Das Script kümmert si
 ## 🏷️ Topics / Tags
 `powershell`, `outlook`, `microsoft-teams`, `time-tracking`, `stream-deck`, `calendar`, `windows`, `productivity`, `winforms`, `com-interop`, `focus-time`
 
-## 📜 Lizenz
-MIT – siehe `LICENSE`.
+## 📜 License
+MIT — see `LICENSE`.
 
 ## 🤝 Contributing
-Issues/PRs willkommen! Bitte bei PRs:
-- kompakte Commits (Conventional Commits optional)
-- Kommentar im Code bei Outlook-Interop oder UI-Änderungen
-- kurz beschreiben, wie getestet
+Issues and PRs welcome! For PRs, please:
+- keep commits compact (Conventional Commits optional)
+- add short comments for Outlook interop or UI changes
+- briefly describe how you tested

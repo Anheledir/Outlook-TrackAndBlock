@@ -8,7 +8,7 @@ Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt�
 ## ✨ Features
 - 🗓️ **Neue Fokus-Blöcke** starten (30/60/90/120 Min) – F1–F4
 - ➕ **Laufenden Termin fortsetzen** (+30/+60/+90/+120 Min) – F5–F8
-- 🔒 Termine sind **privat** und mit Kategorie **„Tracking“**
+- 🔒 Termine sind ~~**privat**~~ und mit Kategorie **„Tracking“**
 - 🖥️ **Dark-ish** WinForms-Dialog, DPI-aware, Fokus-Fix (AttachThreadInput)
 - 🧰 **CLI-Modus** für direkte Nutzung ohne GUI (z. B. Stream Deck)
 - 🪟 Konsole wird **versteckt**; Start mit `-WindowStyle Hidden`
@@ -19,7 +19,7 @@ Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt�
 - PowerShell 5.1 **oder** 7.x (WinForms vorhanden)
 
 ## 🚀 Quickstart
-1. Script `Outlook_Timetracker.ps1` aus `/src` speichern.
+1. Script `Outlook_Timetracker.ps1` aus `/scripts` speichern.
 2. Testen:
 
 ~~~powershell
@@ -78,16 +78,14 @@ Outlook-Restrict benötigt das Format `MM/dd/yyyy HH:mm`. Das Script kümmert si
 
 ## 🔐 Datenschutz
 - Termine werden **lokal** via Outlook-COM erstellt (keine Cloud-API).
-- Ereignisse sind **privat** markiert und mit der Kategorie „Tracking“.
 - Es werden **keine Daten extern übertragen**.
 
 ## 📦 Struktur
 ~~~
-/src/Outlook_Timetracker.ps1
+/scripts/Outlook_Timetracker.ps1
 /assets/screenshot.png           # optional
 /LICENSE
 /README.md
-/CHANGELOG.md
 ~~~
 
 ## 🏷️ Topics / Tags

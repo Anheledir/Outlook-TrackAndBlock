@@ -1,6 +1,6 @@
 # Outlook-TrackAndBlock
 
-![🇩🇪 German version of this file](/README_de.md)
+[🇩🇪 German version of this file](/README_de.md)
 
 PowerShell tool with both **GUI** and **CLI** that creates/extends private "tracking" appointments in Outlook.  
 This automatically sets **Microsoft Teams** presence to **"Busy"** — perfect as a Stream Deck action.

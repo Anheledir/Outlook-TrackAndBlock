@@ -5,6 +5,9 @@ Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt�
 
 > Kein Registry-Hack, keine UI-Mausklick-Bastelei: sauber über den Kalender.
 
+![Track & Block – Screenshot](../assets/screenshot.png)
+
+
 ## ✨ Features
 - 🗓️ **Neue Fokus-Blöcke** starten (30/60/90/120 Min) – F1–F4
 - ➕ **Laufenden Termin fortsetzen** (+30/+60/+90/+120 Min) – F5–F8
@@ -83,7 +86,7 @@ Outlook-Restrict benötigt das Format `MM/dd/yyyy HH:mm`. Das Script kümmert si
 ## 📦 Struktur
 ~~~
 /scripts/Outlook_Timetracker.ps1
-/assets/screenshot.png           # optional
+/assets/screenshot.png
 /LICENSE
 /README.md
 ~~~

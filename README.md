@@ -3,9 +3,7 @@
 PowerShell-Tool mit GUI **und** CLI, das über Outlook private „Tracking“-Termine anlegt/verlängert.  
 Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt“** – ideal als Stream-Deck-Action.
 
-> Kein Registry-Hack, keine UI-Mausklick-Bastelei: sauber über den Kalender.
-
-![Track & Block – Screenshot](../assets/screenshot.png)
+![Track & Block – Screenshot](/assets/screenshot.png?raw=true)
 
 
 ## ✨ Features

@@ -1,3 +1,7 @@
+param(
+    [switch]$Private
+)
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -14,7 +18,7 @@ public static class FocusHack {
 }
 "@
 
-# ---------- Konsole verstecken/minimieren ----------
+# ---------- Hide/Minimize Console ----------
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -26,17 +30,31 @@ public static class Win32 {
 $hWnd = [Win32]::GetConsoleWindow()
 if ($hWnd -ne [IntPtr]::Zero) { [Win32]::ShowWindow($hWnd, 0) } # 0 = SW_HIDE
 
-# ------------------ Konfiguration ------------------
-$CategoryName    = "Tracking" # TODO: Zusätzliche Kategorien, bsp. für verschiedene Projekte?
+# ------------------ Configuration ------------------
+$CategoryName    = "Tracking" # TODO: Additional categories, e.g. for different projects?
 $CategoryColor   = 6
 $MinDuration     = 15
 $DurationsStart  = @(30,60,90,120)  # F1-F4
 $DurationsExtend = @(30,60,90,120)  # F5-F8
 $AppDir          = Join-Path $env:LOCALAPPDATA "OutlookTimeTracker"
 $LastSubjectFile = Join-Path $AppDir "lastsubject.txt"
+$LastPrivateFile = Join-Path $AppDir "lastprivate.txt"
 if (-not (Test-Path $AppDir)) { New-Item -ItemType Directory -Path $AppDir -Force | Out-Null }
 
-# UI-Feintuning
+$DefaultPrivate = if ($PSBoundParameters.ContainsKey('Private')) {
+    [bool]$Private
+} elseif (Test-Path $LastPrivateFile) {
+    (Get-Content $LastPrivateFile -EA SilentlyContinue | Select-Object -First 1) -eq '1'
+} else {
+    $false
+}
+
+$ScriptVersion = '1.1'
+$ProjectOwner  = 'Anheledir'
+$ProjectRepo   = 'Outlook-TrackAndBlock'
+$ProjectUrl    = "https://github.com/$ProjectOwner/$ProjectRepo"
+
+# UI fine-tuning
 $BtnWidth        = 150
 $BtnHeight       = 42
 $Gap             = 12
@@ -68,10 +86,10 @@ function Get-OutlookApp { try { [Runtime.InteropServices.Marshal]::GetActiveObje
 function Ensure-Category { param([object]$Session) try { $null = $Session.Categories.Item($CategoryName) } catch { $null = $Session.Categories.Add($CategoryName, $CategoryColor) } }
 
 function New-TrackingAppointment {
-    param([string]$Subject,[int]$DurationMinutes = 30)
+    param([string]$Subject,[int]$DurationMinutes = 30,[bool]$Private=$false)
     $outlook = Get-OutlookApp
     if (-not $outlook) {
-        [System.Windows.Forms.MessageBox]::Show("Outlook konnte nicht gestartet werden.","Fehler",
+        [System.Windows.Forms.MessageBox]::Show("Could not start Outlook.","Error",
             [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null; return
     }
     $session = $outlook.Session; Ensure-Category -Session $session
@@ -79,10 +97,9 @@ function New-TrackingAppointment {
     $finalSubject = if ([string]::IsNullOrWhiteSpace($Subject)) { $CategoryName } else { $Subject.Trim() }
     $appt = $outlook.CreateItem(1)
     $appt.Subject=$finalSubject; $appt.Start=$now; $appt.End=$now.AddMinutes($mins)
-    # Markiert den Eintrag als "Privat", TODO: Switch einbauen
-    # $appt.Categories=$CategoryName; $appt.BusyStatus=2; $appt.Sensitivity=2; $appt.ReminderSet=$false
     $appt.Categories=$CategoryName; $appt.BusyStatus=2; $appt.ReminderSet=$false
-    $appt.Body = "Automatisch angelegt via Stream Deck / Script am $($now.ToString('yyyy-MM-dd HH:mm'))."
+    if ($Private) { $appt.Sensitivity=2 } else { $appt.Sensitivity=0 }
+    $appt.Body = "Automatically created via script on $($now.ToString('yyyy-MM-dd HH:mm'))."
     $appt.Save()
     try { Set-Content -Path $LastSubjectFile -Value $finalSubject -Encoding UTF8 -Force } catch {}
 }
@@ -91,19 +108,25 @@ function Get-CurrentAppointment {
     param([bool]$PreferTracking = $true)
     $outlook = Get-OutlookApp; if (-not $outlook) { return $null }
     $ns=$outlook.Session; $cal=$ns.GetDefaultFolder(9); $items=$cal.Items
-    $items.IncludeRecurrences=$true; $items.Sort("[Start]")
-    $stamp=(Get-Date).ToString("MM/dd/yyyy HH:mm")
-    $current=$items.Restrict("[Start] <= '$stamp' AND [End] > '$stamp'")
-    if ($current -and $current.Count -gt 0) {
+    $items.IncludeRecurrences=$true
+    $now = Get-Date
+    $currentItems=@()
+    foreach ($it in $items) {
+        try {
+            if ($it.MessageClass -like "IPM.Appointment*" -and $it.Start -le $now -and $it.End -gt $now) {
+                $currentItems += $it
+            }
+        } catch {}
+    }
+    if ($currentItems.Count -gt 0) {
         if ($PreferTracking) {
-            foreach ($it in $current) {
+            foreach ($it in $currentItems) {
                 try {
-                    if ($it.MessageClass -like "IPM.Appointment*" -and
-                        ($it.Categories -and ($it.Categories -split ';' | % { $_.Trim() }) -contains $CategoryName)) { return $it }
+                    if ($it.Categories -and ($it.Categories -split ';' | % { $_.Trim() }) -contains $CategoryName) { return $it }
                 } catch {}
             }
         }
-        foreach ($it in $current) { try { if ($it.MessageClass -like "IPM.Appointment*") { return $it } } catch {} }
+        return $currentItems[0]
     }
     $null
 }
@@ -112,18 +135,30 @@ function Extend-CurrentAppointment {
     param([int]$AddMinutes, [switch]$Silent)
     $appt = Get-CurrentAppointment -PreferTracking:$true
     if (-not $appt) {
-        if (-not $Silent) { [System.Windows.Forms.MessageBox]::Show("Kein laufender Termin gefunden.","Nichts zu verlängern",
+        if (-not $Silent) { [System.Windows.Forms.MessageBox]::Show("No running appointment found.","Nothing to extend",
             [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null }
         return
     }
     $appt.End = $appt.End.AddMinutes([int]$AddMinutes)
-    $append = "`r`n[+$AddMinutes min am $((Get-Date).ToString('yyyy-MM-dd HH:mm'))]"
+    $append = "`r`n[+$AddMinutes min on $((Get-Date).ToString('yyyy-MM-dd HH:mm'))]"
     try { if ([string]::IsNullOrEmpty($appt.Body)) { $appt.Body=$append.Trim() } else { $appt.Body += $append } } catch {}
     $appt.Save()
     if (-not $Silent) {
-        [System.Windows.Forms.MessageBox]::Show("Termin bis $($appt.End.ToString('HH:mm')) verlängert.","Fortgesetzt (+$AddMinutes)",
+        [System.Windows.Forms.MessageBox]::Show("Appointment extended until $($appt.End.ToString('HH:mm')).","Extended (+$AddMinutes)",
             [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
     }
+}
+
+function Check-ForUpdate {
+    param([string]$CurrentVersion)
+    try {
+        $tags = Invoke-RestMethod -Uri "https://api.github.com/repos/$ProjectOwner/$ProjectRepo/tags" -UseBasicParsing -Headers @{ 'User-Agent' = 'OutlookTimeTracker' }
+        if ($tags) {
+            $latest = ($tags | Sort-Object { [version]$_.name } -Descending | Select-Object -First 1).name
+            if ([version]$latest -gt [version]$CurrentVersion) { return $latest }
+        }
+    } catch {}
+    $null
 }
 
 # ------------------ UI Helpers ------------------
@@ -209,11 +244,11 @@ $form.Font                   = New-Object System.Drawing.Font("Segoe UI", 10.5)
 $form.BackColor              = $ClrBg
 $form.ForeColor              = $ClrText
 
-# Haupt-Table
+# Root table
 $root = New-Object System.Windows.Forms.TableLayoutPanel
 $root.Dock = 'Fill'
 $root.ColumnCount = 1
-$root.RowCount    = 5
+$root.RowCount    = 6
 $root.Padding     = New-Object System.Windows.Forms.Padding($Gap,$Gap,$Gap,$Gap)
 $root.BackColor   = $ClrBg
 $root.RowStyles.Add( (New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)) ) | Out-Null
@@ -221,10 +256,11 @@ $root.RowStyles.Add( (New-Object System.Windows.Forms.RowStyle([System.Windows.F
 $root.RowStyles.Add( (New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)) ) | Out-Null
 $root.RowStyles.Add( (New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)) ) | Out-Null
 $root.RowStyles.Add( (New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)) ) | Out-Null
+$root.RowStyles.Add( (New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::AutoSize)) ) | Out-Null
 
-# Überschrift + Text
+# Header + task input
 $labelTask = New-Object System.Windows.Forms.Label
-$labelTask.Text = "Aufgabe / Thema"
+$labelTask.Text = "Task / Topic"
 $labelTask.AutoSize = $true
 $labelTask.Margin = New-Object System.Windows.Forms.Padding(0,0,0,6)
 $labelTask.Font = New-Object System.Drawing.Font($form.Font, [System.Drawing.FontStyle]::Bold)
@@ -238,6 +274,13 @@ $textTask.Margin = New-Object System.Windows.Forms.Padding(0,0,0,$Gap)
 $textTask.Anchor = 'Left,Right'
 $textTask.Width  = 700
 try { if (Test-Path $LastSubjectFile) { $last = Get-Content $LastSubjectFile -EA SilentlyContinue | Select-Object -First 1; if ($last){ $textTask.Text = $last } } } catch {}
+
+$chkPrivate = New-Object System.Windows.Forms.CheckBox
+$chkPrivate.Text = "Private appointment"
+$chkPrivate.AutoSize = $true
+$chkPrivate.Checked = $DefaultPrivate
+$chkPrivate.Margin = New-Object System.Windows.Forms.Padding(0,0,0,$Gap)
+$chkPrivate.ForeColor = $ClrText
 
 function New-Card([string]$title, [System.Drawing.Color]$bg) {
     $card = New-Object System.Windows.Forms.TableLayoutPanel
@@ -269,46 +312,76 @@ function New-Card([string]$title, [System.Drawing.Color]$bg) {
     return @($card,$row)
 }
 
-# Karten
-$cardStart,  $panelStart  = New-Card "Neu starten (setzt Teams auf 'Beschäftigt')" $ClrCard
-$cardExtend, $panelExtend = New-Card "Laufenden Termin fortsetzen" $ClrCard2
+# Cards
+$cardStart,  $panelStart  = New-Card "Start new (sets Teams to 'Busy')" $ClrCard
+$cardExtend, $panelExtend = New-Card "Extend running appointment" $ClrCard2
 
-# ToolTips
+# Tooltips
 $tt = New-Object System.Windows.Forms.ToolTip
 $tt.AutoPopDelay=6000; $tt.InitialDelay=250; $tt.ReshowDelay=100
+$tt.SetToolTip($chkPrivate, "Mark appointment as private")
 
-# Start-Buttons
+# Start buttons
 $startButtons=@(); $accents=@($ClrA1,$ClrA2,$ClrA3,$ClrA4)
 for ($i=0; $i -lt $DurationsStart.Count; $i++) {
     $mins=$DurationsStart[$i]; $base=$accents[$i]
-    $btn = New-NiceButton "⏱  $mins Min  (F$($i+1))" $mins $base $ClrBg (Lighten $base 18)
+    $btn = New-NiceButton "⏱  $mins min  (F$($i+1))" $mins $base $ClrBg (Lighten $base 18)
     $btn.Add_Click([System.EventHandler]{ param($sender,$e)
-        New-TrackingAppointment -Subject $textTask.Text -DurationMinutes ([int]$sender.Tag)
+        New-TrackingAppointment -Subject $textTask.Text -DurationMinutes ([int]$sender.Tag) -Private:$chkPrivate.Checked
         $form.Close()
     })
-    $tt.SetToolTip($btn, "Neuen $mins-Minuten-Block starten (Teams = Beschäftigt)")
+    $tt.SetToolTip($btn, "Start a $mins-minute block (Teams = Busy)")
     $panelStart.Controls.Add($btn) | Out-Null
     $startButtons += $btn
 }
 $form.AcceptButton = $startButtons[0]
 
-# Extend-Buttons
+# Extend buttons
 $extendButtons=@()
 for ($i=0; $i -lt $DurationsExtend.Count; $i++) {
     $mins=$DurationsExtend[$i]
-    $btn = New-NiceButton "＋  +$mins Min  (F$($i+5))" $mins $ClrPlus $ClrBg (Lighten $ClrPlus 18)
+    $btn = New-NiceButton "＋  +$mins min  (F$($i+5))" $mins $ClrPlus $ClrBg (Lighten $ClrPlus 18)
     $btn.Add_Click([System.EventHandler]{ param($sender,$e) Extend-CurrentAppointment -AddMinutes ([int]$sender.Tag) })
-    $tt.SetToolTip($btn, "Laufenden Termin um $mins Minuten verlängern")
+    $tt.SetToolTip($btn, "Extend current appointment by $mins minutes")
     $panelExtend.Controls.Add($btn) | Out-Null
     $extendButtons += $btn
 }
 
-# Bottom Row: Abbrechen rechts
+# Bottom row: Cancel on the right
 $bottomRow = New-Object System.Windows.Forms.TableLayoutPanel
-$bottomRow.ColumnCount=1; $bottomRow.RowCount=1
+$bottomRow.ColumnCount=2; $bottomRow.RowCount=1
+$bottomRow.ColumnStyles.Add( (New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent,100)) ) | Out-Null
+$bottomRow.ColumnStyles.Add( (New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::AutoSize)) ) | Out-Null
 $bottomRow.Dock='Top'; $bottomRow.AutoSize=$true
 $bottomRow.Margin = New-Object System.Windows.Forms.Padding(0,0,0,0)
 $bottomRow.Anchor = 'Left,Right'
+
+$infoHost = New-Object System.Windows.Forms.FlowLayoutPanel
+$infoHost.FlowDirection='LeftToRight'
+$infoHost.WrapContents=$false
+$infoHost.AutoSize=$true
+$infoHost.Dock='Top'
+$infoHost.Margin = New-Object System.Windows.Forms.Padding(0,0,0,0)
+
+$lnkGit = New-Object System.Windows.Forms.LinkLabel
+$lnkGit.Text='GitHub'
+$lnkGit.AutoSize=$true
+$lnkGit.LinkColor=$ClrMutedText
+$lnkGit.ActiveLinkColor=(Lighten $ClrMutedText 40)
+$lnkGit.VisitedLinkColor=$ClrMutedText
+$lnkGit.Margin = New-Object System.Windows.Forms.Padding(0,12,8,0)
+$lnkGit.Links.Add(0,$lnkGit.Text.Length,$ProjectUrl)
+$lnkGit.Add_LinkClicked({ param($s,$e) Start-Process $e.Link.LinkData })
+$infoHost.Controls.Add($lnkGit) | Out-Null
+
+$labelUpdate = New-Object System.Windows.Forms.LinkLabel
+$labelUpdate.AutoSize=$true
+$labelUpdate.LinkColor=$ClrMutedText
+$labelUpdate.ActiveLinkColor=(Lighten $ClrMutedText 40)
+$labelUpdate.VisitedLinkColor=$ClrMutedText
+$labelUpdate.Margin = New-Object System.Windows.Forms.Padding(0,12,0,0)
+$labelUpdate.Visible=$false
+$infoHost.Controls.Add($labelUpdate) | Out-Null
 
 $cancelHost = New-Object System.Windows.Forms.FlowLayoutPanel
 $cancelHost.FlowDirection='RightToLeft'
@@ -317,13 +390,32 @@ $cancelHost.AutoSize=$true
 $cancelHost.Dock='Top'
 $cancelHost.Margin = New-Object System.Windows.Forms.Padding(0,0,0,0)
 
-$btnCancel = New-NiceButton "✖  Abbrechen  (Esc)" 0 $ClrCancel $ClrBg (Lighten $ClrCancel 18)
+$btnCancel = New-NiceButton "✖  Cancel  (Esc)" 0 $ClrCancel $ClrBg (Lighten $ClrCancel 18)
 $btnCancel.Add_Click({ $form.Close() })
 $cancelHost.Controls.Add($btnCancel) | Out-Null
-$bottomRow.Controls.Add($cancelHost)
 
-# Keybindings
+$bottomRow.Controls.Add($infoHost,0,0)
+$bottomRow.Controls.Add($cancelHost,1,0)
+
+$latest = Check-ForUpdate -CurrentVersion $ScriptVersion
+if ($latest) {
+    $labelUpdate.Text = "Update $latest available"
+    $labelUpdate.Links.Add(0,$labelUpdate.Text.Length,"$ProjectUrl/releases/tag/$latest")
+    $labelUpdate.Visible = $true
+}
+
+$form.Add_FormClosing({
+    try {
+        Set-Content -Path $LastPrivateFile -Value (if($chkPrivate.Checked){'1'}else{'0'}) -Encoding UTF8 -Force
+    } catch {}
+})
+
+# Key bindings
 $form.Add_KeyDown({
+    if ($_.Alt) {
+        if ($_.KeyCode -eq 'F4') { $form.Close() }
+        return
+    }
     switch ($_.KeyCode) {
         'F1' { $startButtons[0].PerformClick(); break }
         'F2' { $startButtons[1].PerformClick(); break }
@@ -337,22 +429,23 @@ $form.Add_KeyDown({
     }
 })
 
-# Zusammenbau
+# Assembly
 $root.Controls.Add($labelTask,  0,0)
 $root.Controls.Add($textTask,   0,1)
-$root.Controls.Add($cardStart,  0,2)
-$root.Controls.Add($cardExtend, 0,3)
-$root.Controls.Add($bottomRow,  0,4)
+$root.Controls.Add($chkPrivate, 0,2)
+$root.Controls.Add($cardStart,  0,3)
+$root.Controls.Add($cardExtend, 0,4)
+$root.Controls.Add($bottomRow,  0,5)
 $form.Controls.Add($root)
 
-# rechte Flucht synchron halten
+# keep right edge aligned
 $form.Add_Resize({
     $textTask.Width = $root.ClientSize.Width - $root.Padding.Left - $root.Padding.Right
     $cardStart.Width = $textTask.Width
     $cardExtend.Width = $textTask.Width
 })
 
-# --- Fokus/Foreground zuverlässig setzen (Variante A) ---
+# --- Reliable focus/foreground (variant A) ---
 $form.Add_Shown({
     $form.TopMost = $true
     [System.Windows.Forms.Application]::DoEvents()

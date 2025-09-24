@@ -52,11 +52,10 @@ if (-not (Test-Path $AppDir)) { New-Item -ItemType Directory -Path $AppDir -Forc
 $StoredSubject = $null
 try {
     if (Test-Path $LastSubjectFile) {
-        $StoredSubject = Get-Content $LastSubjectFile -EA SilentlyContinue | Select-Object -First 1
+        $StoredSubject = Get-Content $LastSubjectFile -Encoding UTF8 -EA SilentlyContinue | Select-Object -First 1
     }
 } catch {}
 if ($StoredSubject -ne $null) { $StoredSubject = $StoredSubject.Trim() }
-
 $normalizedSlots = [System.Collections.Generic.List[int]]::new()
 foreach ($slot in $AllowedStartMinutes) {
     $parsed = 0

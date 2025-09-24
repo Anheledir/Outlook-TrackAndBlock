@@ -37,7 +37,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 ## Stream Deck Integration
 
 - **Action:** System → *Open*
-- **Program:** `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
+- **Program (Windows PowerShell 5.1):** `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`
+- **Program (PowerShell 7+):** `C:\Program Files\PowerShell\7\pwsh.exe`
 - **Arguments (GUI):**
 
 ~~~powershell
@@ -60,19 +61,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 
 - `$CategoryName = "Tracking"` (created automatically if missing)
 - `$DurationsStart / $DurationsExtend` — button minutes
-- `$AllowedStartMinutes` — minute marks for start alignment (e.g. `@(0,15,30,45)`); Valid minutes are 0-59; duplicates are ignored; use `@()` to disable rounding
-- `$AlignmentLookAroundMinutes` — minutes to look around "now" for nearby appointment endings (default: 10)
+- `$AllowedStartMinutes` — minute marks for start alignment (e.g. `@(0,15,30,45)`); valid minutes are 0-59; duplicates ignored; use `@()` to disable rounding  
+- `$AlignmentLookAroundMinutes` — window (in minutes) to treat appointments that just ended or end soon as "nearby" (default: 10)
 - `$BtnWidth / $BtnHeight` — button sizes
 - Theme colors (dark/subtle) are defined as variables
 - Optional: `$SilentExtendDefault = $true` (disable MessageBox after "Extend")
 
-When alignment is active, the script checks for nearby appointments that just ended or are about to end and starts the new block right after them; otherwise it rounds to the closest allowed slot.
+When alignment is active, the script checks for nearby appointments that just ended or end within `$LookAroundMinutes` and starts the new block right after them; otherwise it rounds to the closest allowed slot.
 
 ## CLI Parameters (optional)
 
 ~~~powershell
 -Subject <string>        # Task/subject name
--StartMinutes <int>      # Start a block immediately (skips GUI)
+-StartMinutes <int>      # Start a block immediately with this duration in minutes (skips GUI)
 -ExtendMinutes <int>     # Extend the currently running appointment
 ~~~
 
@@ -93,6 +94,7 @@ Outlook's `Restrict` API requires `MM/dd/yyyy HH:mm`. The script handles this fo
 
 ## Architecture
 
+```mermaid
 sequenceDiagram
   autonumber
   participant U as User / CLI
@@ -108,7 +110,7 @@ sequenceDiagram
   else AllowedStartMinutes set
     PS->>PS: candidate = Get-ClosestAllowedStart(Now, AllowedStartMinutes)
     PS->>OL: Open session
-    PS->>CAL: Query items within LookAroundMinutes
+    PS->>CAL: Query items within AlignmentLookAroundMinutes
     alt Nearby event ended/ends soon
       PS->>PS: start = Get-AlignedStartTime(..., favor immediate-after)
     else No nearby items
@@ -118,6 +120,7 @@ sequenceDiagram
   PS->>PS: end = start + duration (or ExtendMinutes)
   PS->>OL: Create appointment (start, end)
   OL-->>U: Appointment created
+```
 
 ## Privacy
 

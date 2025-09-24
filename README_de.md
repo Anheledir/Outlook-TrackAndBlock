@@ -93,6 +93,7 @@ Outlook-Restrict benötigt das Format `MM/dd/yyyy HH:mm`. Das Script kümmert si
 
 ## Architektur
 
+```mermaid
 sequenceDiagram
   autonumber
   participant U as User / CLI
@@ -108,7 +109,7 @@ sequenceDiagram
   else AllowedStartMinutes set
     PS->>PS: candidate = Get-ClosestAllowedStart(Now, AllowedStartMinutes)
     PS->>OL: Open session
-    PS->>CAL: Query items within LookAroundMinutes
+    PS->>CAL: Query items within AlignmentLookAroundMinutes
     alt Nearby event ended/ends soon
       PS->>PS: start = Get-AlignedStartTime(..., favor immediate-after)
     else No nearby items
@@ -118,6 +119,7 @@ sequenceDiagram
   PS->>PS: end = start + duration (or ExtendMinutes)
   PS->>OL: Create appointment (start, end)
   OL-->>U: Appointment created
+```
 
 ## Datenschutz
 

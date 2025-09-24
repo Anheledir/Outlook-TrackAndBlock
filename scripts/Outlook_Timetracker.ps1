@@ -1,4 +1,9 @@
 param(
+    [string]$Subject,
+    [ValidateRange(1, 1440)]
+    [int]$StartMinutes,
+    [ValidateRange(1, 1440)]
+    [int]$ExtendMinutes,
     [switch]$Private
 )
 
@@ -38,11 +43,19 @@ $DurationsStart  = @(30,60,90,120)    # F1-F4
 $DurationsExtend = @(30,60,90,120)    # F5-F8
 $AllowedStartMinutes = @(0,15,30,45)  # Allowed minute marks for new appointments; set @() to disable alignment
 $AlignmentLookAroundMinutes = 10      # Window (± minutes) to align after nearby endings
+$SilentExtendDefault = $false         # Set to $true to suppress MessageBox after Extend
 $AppDir          = Join-Path $env:LOCALAPPDATA "OutlookTimeTracker"
 $LastSubjectFile = Join-Path $AppDir "lastsubject.txt"
 $LastPrivateFile = Join-Path $AppDir "lastprivate.txt"
 if (-not (Test-Path $AppDir)) { New-Item -ItemType Directory -Path $AppDir -Force | Out-Null }
 
+$StoredSubject = $null
+try {
+    if (Test-Path $LastSubjectFile) {
+        $StoredSubject = Get-Content $LastSubjectFile -Encoding UTF8 -EA SilentlyContinue | Select-Object -First 1
+    }
+} catch {}
+if ($StoredSubject -ne $null) { $StoredSubject = $StoredSubject.Trim() }
 $normalizedSlots = [System.Collections.Generic.List[int]]::new()
 foreach ($slot in $AllowedStartMinutes) {
     $parsed = 0
@@ -62,6 +75,14 @@ $DefaultPrivate = if ($PSBoundParameters.ContainsKey('Private')) {
 } else {
     $false
 }
+
+$ResolvedSubject = $null
+if ($PSBoundParameters.ContainsKey('Subject')) {
+    $ResolvedSubject = $Subject
+} elseif (-not [string]::IsNullOrWhiteSpace($StoredSubject)) {
+    $ResolvedSubject = $StoredSubject
+}
+if ($ResolvedSubject -ne $null) { $ResolvedSubject = $ResolvedSubject.Trim() }
 
 $ScriptVersion = '1.2'
 $ProjectOwner  = 'Anheledir'
@@ -357,6 +378,45 @@ function Invoke-ForegroundFix {
     $t.Start()
 }
 
+# ------------------ CLI Mode ------------------
+$cliStartRequested  = $PSBoundParameters.ContainsKey('StartMinutes')
+$cliExtendRequested = $PSBoundParameters.ContainsKey('ExtendMinutes')
+
+if ($cliStartRequested -and $cliExtendRequested) {
+    [System.Windows.Forms.MessageBox]::Show("Use -StartMinutes or -ExtendMinutes, not both.","Invalid parameters",
+        [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+    Write-Error "Use -StartMinutes or -ExtendMinutes, not both."
+    $global:LASTEXITCODE = 1
+    return
+}
+
+if ($cliStartRequested) {
+    if ($StartMinutes -le 0) {
+        [System.Windows.Forms.MessageBox]::Show("StartMinutes must be a positive number of minutes.","Invalid StartMinutes",
+            [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+        Write-Error "StartMinutes must be a positive integer."
+        $global:LASTEXITCODE = 1
+        return
+    }
+
+    New-TrackingAppointment -Subject $ResolvedSubject -DurationMinutes $StartMinutes -Private:$DefaultPrivate
+    try { Set-Content -Path $LastPrivateFile -Value (if($DefaultPrivate){'1'}else{'0'}) -Encoding UTF8 -Force } catch {}
+    return
+}
+
+if ($cliExtendRequested) {
+    if ($ExtendMinutes -le 0) {
+        [System.Windows.Forms.MessageBox]::Show("ExtendMinutes must be a positive number of minutes.","Invalid ExtendMinutes",
+            [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+        Write-Error "ExtendMinutes must be a positive integer."
+        $global:LASTEXITCODE = 1
+        return
+    }
+
+    Extend-CurrentAppointment -AddMinutes $ExtendMinutes -Silent:$SilentExtendDefault
+    return
+}
+
 # ------------------ GUI ------------------
 $form                        = New-Object System.Windows.Forms.Form
 $form.Text                   = "Track & Block"
@@ -399,7 +459,7 @@ $textTask.ForeColor=$ClrText
 $textTask.Margin = New-Object System.Windows.Forms.Padding(0,0,0,$Gap)
 $textTask.Anchor = 'Left,Right'
 $textTask.Width  = 700
-try { if (Test-Path $LastSubjectFile) { $last = Get-Content $LastSubjectFile -EA SilentlyContinue | Select-Object -First 1; if ($last){ $textTask.Text = $last } } } catch {}
+if ($ResolvedSubject -ne $null) { $textTask.Text = $ResolvedSubject }
 
 $chkPrivate = New-Object System.Windows.Forms.CheckBox
 $chkPrivate.Text = "Private appointment"
@@ -467,7 +527,7 @@ $extendButtons=@()
 for ($i=0; $i -lt $DurationsExtend.Count; $i++) {
     $mins=$DurationsExtend[$i]
     $btn = New-NiceButton "＋  +$mins min  (F$($i+5))" $mins $ClrPlus $ClrBg (Lighten $ClrPlus 18)
-    $btn.Add_Click([System.EventHandler]{ param($sender,$e) Extend-CurrentAppointment -AddMinutes ([int]$sender.Tag) })
+    $btn.Add_Click([System.EventHandler]{ param($sender,$e) Extend-CurrentAppointment -AddMinutes ([int]$sender.Tag) -Silent:$SilentExtendDefault })
     $tt.SetToolTip($btn, "Extend current appointment by $mins minutes")
     $panelExtend.Controls.Add($btn) | Out-Null
     $extendButtons += $btn

@@ -61,7 +61,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 - `$CategoryName = "Tracking"` (wird bei Bedarf automatisch angelegt)
 - `$DurationsStart / $DurationsExtend` - Button-Minuten
 - `$AllowedStartMinutes` - Minutenmarken für den Start (z. B. `@(0,15,30,45)`); Zulässig sind Minuten 0-59; Duplikate werden ignoriert; mit `@()` lässt sich die Rundung abschalten
-- `$AlignmentLookAroundMinutes` — Zeitraum in Minuten zum suchen von angrenzenden Termin-Ende (Standard: 10)
+- `$AlignmentLookAroundMinutes` — Zeitraum in Minuten zum Suchen von angrenzenden Terminenden (Standard: 10)
 - `$BtnWidth / $BtnHeight` - Größe der Buttons
 - Theme-Farben (dunkel/dezent) sind als Variablen definiert
 - Optional: `$SilentExtendDefault = $true` (MessageBox nach „Extend“ abschalten)
@@ -74,8 +74,10 @@ Mit aktivierter Ausrichtung sucht das Script nach Terminen, die gerade geendet h
 -Subject <string>        # Betreff/Name der Aufgabe
 -StartMinutes <int>      # Startet sofort einen Block (GUI wird übersprungen)
 -ExtendMinutes <int>     # Verlängert den aktuell laufenden Termin
+-Private                 # Schalter – markiert den neuen Block als privat (GUI wird vorab angehakt)
 ~~~
 
+`-StartMinutes` und `-ExtendMinutes` lassen sich nicht kombinieren; gib genau einen positiven Minutenwert für eine der Optionen an. `-Subject` kann auch allein genutzt werden, um die GUI vorab zu befüllen.
 ## FAQ
 
 **Setzt das Tool „Nicht stören (DND)“ in Teams?**  

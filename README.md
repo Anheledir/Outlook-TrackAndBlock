@@ -75,7 +75,11 @@ When alignment is active, the script checks for nearby appointments that just en
 -Subject <string>        # Task/subject name
 -StartMinutes <int>      # Start a block immediately with this duration in minutes (skips GUI)
 -ExtendMinutes <int>     # Extend the currently running appointment
+-Private                 # Switch — mark the next block as private (also pre-checks the GUI)
 ~~~
+
+`-StartMinutes` and `-ExtendMinutes` are mutually exclusive; provide a positive value for exactly one of them. `-Subject` can be
+used on its own to pre-fill the GUI.
 
 ## FAQ
 

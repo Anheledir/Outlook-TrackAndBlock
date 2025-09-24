@@ -1,6 +1,6 @@
 # Outlook-TrackAndBlock
 
-[🇺🇸 Englische Version dieser Datei](/README_de.md)
+[🇺🇸 Englische Version dieser Datei](/README.md)
 
 PowerShell-Tool mit GUI **und** CLI, das über Outlook private „Tracking“-Termine anlegt/verlängert.  
 Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt“** - ideal als Stream-Deck-Action.
@@ -74,7 +74,11 @@ Mit aktivierter Ausrichtung sucht das Script nach Terminen, die gerade geendet h
 -Subject <string>        # Betreff/Name der Aufgabe
 -StartMinutes <int>      # Startet sofort einen Block (GUI wird übersprungen)
 -ExtendMinutes <int>     # Verlängert den aktuell laufenden Termin
+-Private                 # Schalter – markiert den neuen Block als privat (GUI wird vorab angehakt)
 ~~~
+
+`-StartMinutes` und `-ExtendMinutes` lassen sich nicht kombinieren; gib genau einen positiven Minutenwert für eine der Option
+en an. `-Subject` kann auch allein genutzt werden, um die GUI vorab zu befüllen.
 
 ## FAQ
 

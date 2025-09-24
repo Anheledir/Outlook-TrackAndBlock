@@ -5,7 +5,7 @@
 PowerShell-Tool mit GUI **und** CLI, das über Outlook private „Tracking“-Termine anlegt/verlängert.  
 Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt“** - ideal als Stream-Deck-Action.
 
-![Track & Block - Screenshot](../assets/screenshot.png)
+![Track & Block — Screenshot](/assets/screenshot.png?raw=true)
 
 ## Features
 
@@ -61,7 +61,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 - `$CategoryName = "Tracking"` (wird bei Bedarf automatisch angelegt)
 - `$DurationsStart / $DurationsExtend` - Button-Minuten
 - `$AllowedStartMinutes` - Minutenmarken für den Start (z. B. `@(0,15,30,45)`); Zulässig sind Minuten 0-59; Duplikate werden ignoriert; mit `@()` lässt sich die Rundung abschalten
-- `$AlignmentLookAroundMinutes` — Zeitraum in Minuten zum suchen von angrenzenden Termin-Ende (Standard: 10)
+- `$AlignmentLookAroundMinutes` — Zeitraum in Minuten zum Suchen von angrenzenden Terminenden (Standard: 10)
 - `$BtnWidth / $BtnHeight` - Größe der Buttons
 - Theme-Farben (dunkel/dezent) sind als Variablen definiert
 - Optional: `$SilentExtendDefault = $true` (MessageBox nach „Extend“ abschalten)

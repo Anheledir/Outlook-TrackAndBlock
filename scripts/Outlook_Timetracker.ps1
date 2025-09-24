@@ -1,6 +1,8 @@
 param(
     [string]$Subject,
+    [ValidateRange(1, 1440)]
     [int]$StartMinutes,
+    [ValidateRange(1, 1440)]
     [int]$ExtendMinutes,
     [switch]$Private
 )
@@ -384,6 +386,8 @@ $cliExtendRequested = $PSBoundParameters.ContainsKey('ExtendMinutes')
 if ($cliStartRequested -and $cliExtendRequested) {
     [System.Windows.Forms.MessageBox]::Show("Use -StartMinutes or -ExtendMinutes, not both.","Invalid parameters",
         [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+    Write-Error "Use -StartMinutes or -ExtendMinutes, not both."
+    $global:LASTEXITCODE = 1
     return
 }
 
@@ -391,6 +395,8 @@ if ($cliStartRequested) {
     if ($StartMinutes -le 0) {
         [System.Windows.Forms.MessageBox]::Show("StartMinutes must be a positive number of minutes.","Invalid StartMinutes",
             [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+        Write-Error "StartMinutes must be a positive integer."
+        $global:LASTEXITCODE = 1
         return
     }
 
@@ -403,6 +409,8 @@ if ($cliExtendRequested) {
     if ($ExtendMinutes -le 0) {
         [System.Windows.Forms.MessageBox]::Show("ExtendMinutes must be a positive number of minutes.","Invalid ExtendMinutes",
             [System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Warning) | Out-Null
+        Write-Error "ExtendMinutes must be a positive integer."
+        $global:LASTEXITCODE = 1
         return
     }
 
@@ -520,7 +528,7 @@ $extendButtons=@()
 for ($i=0; $i -lt $DurationsExtend.Count; $i++) {
     $mins=$DurationsExtend[$i]
     $btn = New-NiceButton "＋  +$mins min  (F$($i+5))" $mins $ClrPlus $ClrBg (Lighten $ClrPlus 18)
-    $btn.Add_Click([System.EventHandler]{ param($sender,$e) Extend-CurrentAppointment -AddMinutes ([int]$sender.Tag) })
+    $btn.Add_Click([System.EventHandler]{ param($sender,$e) Extend-CurrentAppointment -AddMinutes ([int]$sender.Tag) -Silent:$SilentExtendDefault })
     $tt.SetToolTip($btn, "Extend current appointment by $mins minutes")
     $panelExtend.Controls.Add($btn) | Out-Null
     $extendButtons += $btn

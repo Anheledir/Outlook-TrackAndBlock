@@ -34,9 +34,10 @@ if ($hWnd -ne [IntPtr]::Zero) { [Win32]::ShowWindow($hWnd, 0) } # 0 = SW_HIDE
 $CategoryName    = "Tracking" # TODO: Additional categories, e.g. for different projects?
 $CategoryColor   = 6
 $MinDuration     = 15
-$DurationsStart  = @(30,60,90,120)  # F1-F4
-$DurationsExtend = @(30,60,90,120)  # F5-F8
-$AllowedStartMinutes = @(0,15,30,45) # Allowed minute marks for new appointments; set @() to disable alignment
+$DurationsStart  = @(30,60,90,120)    # F1-F4
+$DurationsExtend = @(30,60,90,120)    # F5-F8
+$AllowedStartMinutes = @(0,15,30,45)  # Allowed minute marks for new appointments; set @() to disable alignment
+$AlignmentLookAroundMinutes = 10      # Window (± minutes) to align after nearby endings
 $AppDir          = Join-Path $env:LOCALAPPDATA "OutlookTimeTracker"
 $LastSubjectFile = Join-Path $AppDir "lastsubject.txt"
 $LastPrivateFile = Join-Path $AppDir "lastprivate.txt"
@@ -105,15 +106,17 @@ function Get-NextAllowedStartOnOrAfter {
         [int[]]$AllowedMinutes
     )
     if (-not $AllowedMinutes -or $AllowedMinutes.Count -eq 0) { return $Reference }
+    # Ensure ascending, distinct minutes even if caller passes arbitrary input
+    $mins = @($AllowedMinutes | Sort-Object -Unique)
 
     $hourBase = $Reference.Date.AddHours($Reference.Hour)
-    foreach ($minute in $AllowedMinutes) {
+    foreach ($minute in $mins) {
         $candidate = $hourBase.AddMinutes($minute)
         if ($candidate -ge $Reference) { return $candidate }
     }
 
     $nextHourBase = $hourBase.AddHours(1)
-    $nextMinute   = $AllowedMinutes[0]
+    $nextMinute   = $mins[0]
     $nextHourBase.AddMinutes($nextMinute)
 }
 
@@ -161,8 +164,13 @@ function Get-AlignedStartTime {
     # Narrow to a tight window around the reference to avoid scanning entire mailbox
     $lower = $Reference.AddMinutes(-$LookAroundMinutes)
     $upper = $Reference.AddMinutes( $LookAroundMinutes)
-    $fmt = "MM/dd/yyyy HH:mm"
-    $filter = "[End] >= '{0}' AND [End] <= '{1}'" -f $lower.ToString($fmt), $upper.ToString($fmt)
+    # Outlook Restrict parsing can be picky across locales; using invariant culture and seconds avoids false negatives around minute edges.
+    $ci  = [System.Globalization.CultureInfo]::InvariantCulture
+    $fmt = "MM/dd/yyyy HH:mm:ss"
+    $lowerStr = $lower.ToString($fmt, $ci)
+    $upperStr = $upper.ToString($fmt, $ci)
+    $filter = "[End] >= '$lowerStr' AND [End] <= '$upperStr'"
+
     $windowItems = $items.Restrict($filter)
 
     $nearestFutureEnd = $null
@@ -208,7 +216,7 @@ function New-TrackingAppointment {
     $now  = Get-Date; $mins = [math]::Max($MinDuration, [int]$DurationMinutes)
     $start = $now
     if ($AllowedStartMinutes.Count -gt 0) {
-        $start = Get-AlignedStartTime -Session $session -Reference $now -AllowedMinutes $AllowedStartMinutes
+        $start = Get-AlignedStartTime -Session $session -Reference $now -AllowedMinutes $AllowedStartMinutes -LookAroundMinutes $AlignmentLookAroundMinutes
     }
     $finalSubject = if ([string]::IsNullOrWhiteSpace($Subject)) { $CategoryName } else { $Subject.Trim() }
     $appt = $outlook.CreateItem(1)

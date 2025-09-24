@@ -77,9 +77,7 @@ Mit aktivierter Ausrichtung sucht das Script nach Terminen, die gerade geendet h
 -Private                 # Schalter – markiert den neuen Block als privat (GUI wird vorab angehakt)
 ~~~
 
-`-StartMinutes` und `-ExtendMinutes` lassen sich nicht kombinieren; gib genau einen positiven Minutenwert für eine der Option
-en an. `-Subject` kann auch allein genutzt werden, um die GUI vorab zu befüllen.
-
+`-StartMinutes` und `-ExtendMinutes` lassen sich nicht kombinieren; gib genau einen positiven Minutenwert für eine der Optionen an. `-Subject` kann auch allein genutzt werden, um die GUI vorab zu befüllen.
 ## FAQ
 
 **Setzt das Tool „Nicht stören (DND)“ in Teams?**  

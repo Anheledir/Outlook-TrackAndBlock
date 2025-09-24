@@ -9,6 +9,7 @@ This automatically sets **Microsoft Teams** presence to **"Busy"** — perfect a
 
 ## ✨ Features
 - 🗓️ **Start new focus blocks** (30/60/90/120 min) — F1–F4
+- ⏱️ **Aligned start times** — new blocks snap to configurable minute slots (default 00/15/30/45) and respect nearby bookings
 - ➕ **Extend the current appointment** (+30/+60/+90/+120 min) — F5–F8
 - 🔒 Appointments are ~~**private**~~ and categorized **"Tracking"**
 - 🖥️ **Dark-ish** WinForms dialog, DPI-aware, focus fix (AttachThreadInput)
@@ -54,9 +55,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 ## 🔧 Configuration (at the top of the script)
 - `$CategoryName = "Tracking"` (created automatically if missing)
 - `$DurationsStart / $DurationsExtend` — button minutes
+- `$AllowedStartMinutes` — minute marks for start alignment (e.g. `@(0,15,30,45)`); use `@()` to disable rounding
 - `$BtnWidth / $BtnHeight` — button sizes
 - Theme colors (dark/subtle) are defined as variables
 - Optional: `$SilentExtendDefault = $true` (disable MessageBox after "Extend")
+
+When alignment is active, the script checks for nearby appointments that just ended or are about to end and starts the new block right after them; otherwise it rounds to the closest allowed slot.
 
 ## 🧪 CLI Parameters (optional)
 ~~~powershell

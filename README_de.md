@@ -12,6 +12,7 @@ Dadurch setzt **Microsoft Teams** den Status automatisch auf **„Beschäftigt�
 
 ## ✨ Features
 - 🗓️ **Neue Fokus-Blöcke** starten (30/60/90/120 Min) – F1–F4
+- ⏱️ **Fixe Startzeiten** – neue Blöcke rasten auf konfigurierbare Minuten (Standard 00/15/30/45) ein und berücksichtigen angrenzende Termine
 - ➕ **Laufenden Termin fortsetzen** (+30/+60/+90/+120 Min) – F5–F8
 - 🔒 Termine sind ~~**privat**~~ und mit Kategorie **„Tracking“**
 - 🖥️ **Dark-ish** WinForms-Dialog, DPI-aware, Fokus-Fix (AttachThreadInput)
@@ -57,9 +58,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 ## 🔧 Konfiguration (im Script Kopfbereich)
 - `$CategoryName = "Tracking"` (wird bei Bedarf automatisch angelegt)
 - `$DurationsStart / $DurationsExtend` – Button-Minuten
+- `$AllowedStartMinutes` – Minutenmarken für den Start (z. B. `@(0,15,30,45)`); mit `@()` lässt sich die Rundung abschalten
 - `$BtnWidth / $BtnHeight` – Größe der Buttons
 - Theme-Farben (dunkel/dezent) sind als Variablen definiert
 - Optional: `$SilentExtendDefault = $true` (MessageBox nach „Extend“ abschalten)
+
+Mit aktivierter Ausrichtung sucht das Script nach Terminen, die gerade geendet haben oder in wenigen Minuten enden, und startet den neuen Block direkt danach; ansonsten wird auf den nächstgelegenen erlaubten Slot gerundet.
 
 ## 🧪 CLI-Parameter (optional)
 ~~~powershell

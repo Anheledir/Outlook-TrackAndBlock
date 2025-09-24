@@ -36,10 +36,23 @@ $CategoryColor   = 6
 $MinDuration     = 15
 $DurationsStart  = @(30,60,90,120)  # F1-F4
 $DurationsExtend = @(30,60,90,120)  # F5-F8
+$AllowedStartMinutes = @(0,15,30,45) # Allowed minute marks for new appointments; set @() to disable alignment
 $AppDir          = Join-Path $env:LOCALAPPDATA "OutlookTimeTracker"
 $LastSubjectFile = Join-Path $AppDir "lastsubject.txt"
 $LastPrivateFile = Join-Path $AppDir "lastprivate.txt"
 if (-not (Test-Path $AppDir)) { New-Item -ItemType Directory -Path $AppDir -Force | Out-Null }
+
+$normalizedSlots = [System.Collections.Generic.List[int]]::new()
+foreach ($slot in $AllowedStartMinutes) {
+    $parsed = 0
+    if ([int]::TryParse("$slot", [ref]$parsed)) {
+        if ($parsed -ge 0 -and $parsed -lt 60 -and -not $normalizedSlots.Contains($parsed)) {
+            [void]$normalizedSlots.Add($parsed)
+        }
+    }
+}
+$normalizedSlots.Sort()
+$AllowedStartMinutes = $normalizedSlots.ToArray()
 
 $DefaultPrivate = if ($PSBoundParameters.ContainsKey('Private')) {
     [bool]$Private
@@ -49,7 +62,7 @@ $DefaultPrivate = if ($PSBoundParameters.ContainsKey('Private')) {
     $false
 }
 
-$ScriptVersion = '1.1'
+$ScriptVersion = '1.2'
 $ProjectOwner  = 'Anheledir'
 $ProjectRepo   = 'Outlook-TrackAndBlock'
 $ProjectUrl    = "https://github.com/$ProjectOwner/$ProjectRepo"
@@ -85,6 +98,96 @@ function Lighten([System.Drawing.Color]$c, [int]$d=16) {
 function Get-OutlookApp { try { [Runtime.InteropServices.Marshal]::GetActiveObject("Outlook.Application") } catch { New-Object -ComObject Outlook.Application } }
 function Ensure-Category { param([object]$Session) try { $null = $Session.Categories.Item($CategoryName) } catch { $null = $Session.Categories.Add($CategoryName, $CategoryColor) } }
 
+# ------------------ Start Alignment Helpers ------------------
+function Get-NextAllowedStartOnOrAfter {
+    param(
+        [datetime]$Reference,
+        [int[]]$AllowedMinutes
+    )
+    if (-not $AllowedMinutes -or $AllowedMinutes.Count -eq 0) { return $Reference }
+
+    $hourBase = $Reference.Date.AddHours($Reference.Hour)
+    foreach ($minute in $AllowedMinutes) {
+        $candidate = $hourBase.AddMinutes($minute)
+        if ($candidate -ge $Reference) { return $candidate }
+    }
+
+    $nextHourBase = $hourBase.AddHours(1)
+    $nextMinute   = $AllowedMinutes[0]
+    $nextHourBase.AddMinutes($nextMinute)
+}
+
+function Get-ClosestAllowedStart {
+    param(
+        [datetime]$Reference,
+        [int[]]$AllowedMinutes
+    )
+    if (-not $AllowedMinutes -or $AllowedMinutes.Count -eq 0) { return $Reference }
+
+    $candidates = @()
+    for ($offset = -1; $offset -le 1; $offset++) {
+        $base = $Reference.Date.AddHours($Reference.Hour + $offset)
+        foreach ($minute in $AllowedMinutes) {
+            $candidate = $base.AddMinutes($minute)
+            $candidates += [PSCustomObject]@{
+                Time   = $candidate
+                Diff   = [math]::Abs(($candidate - $Reference).TotalMinutes)
+                Future = ($candidate -ge $Reference)
+            }
+        }
+    }
+
+    $ordered = $candidates | Sort-Object -Property @{Expression={$_.Diff}}, @{Expression={ if ($_.Future) { 0 } else { 1 } }}
+    if (-not $ordered -or $ordered.Count -eq 0) { return $Reference }
+    $ordered[0].Time
+}
+
+function Get-AlignedStartTime {
+    param(
+        [object]$Session,
+        [datetime]$Reference,
+        [int[]]$AllowedMinutes,
+        [int]$LookAroundMinutes = 10
+    )
+
+    if (-not $AllowedMinutes -or $AllowedMinutes.Count -eq 0) { return $Reference }
+
+    $calendar = $Session.GetDefaultFolder(9)
+    $items = $calendar.Items
+    $items.IncludeRecurrences = $true
+
+    $nearestFutureEnd = $null
+    $nearestFutureDiff = [double]::PositiveInfinity
+    $nearestPastEnd = $null
+    $nearestPastDiff = [double]::PositiveInfinity
+
+    foreach ($item in $items) {
+        try {
+            if ($item.MessageClass -like "IPM.Appointment*") {
+                $end = $item.End
+                $diffMinutes = ($end - $Reference).TotalMinutes
+                if ($diffMinutes -ge 0) {
+                    if ($diffMinutes -le $LookAroundMinutes -and $diffMinutes -lt $nearestFutureDiff) {
+                        $nearestFutureEnd = $end
+                        $nearestFutureDiff = $diffMinutes
+                    }
+                } else {
+                    $abs = [math]::Abs($diffMinutes)
+                    if ($abs -le $LookAroundMinutes -and $abs -lt $nearestPastDiff) {
+                        $nearestPastEnd = $end
+                        $nearestPastDiff = $abs
+                    }
+                }
+            }
+        } catch {}
+    }
+
+    if ($nearestFutureEnd) { return Get-NextAllowedStartOnOrAfter -Reference $nearestFutureEnd -AllowedMinutes $AllowedMinutes }
+    if ($nearestPastEnd)   { return Get-NextAllowedStartOnOrAfter -Reference $nearestPastEnd   -AllowedMinutes $AllowedMinutes }
+
+    Get-ClosestAllowedStart -Reference $Reference -AllowedMinutes $AllowedMinutes
+}
+
 function New-TrackingAppointment {
     param([string]$Subject,[int]$DurationMinutes = 30,[bool]$Private=$false)
     $outlook = Get-OutlookApp
@@ -94,9 +197,13 @@ function New-TrackingAppointment {
     }
     $session = $outlook.Session; Ensure-Category -Session $session
     $now  = Get-Date; $mins = [math]::Max($MinDuration, [int]$DurationMinutes)
+    $start = $now
+    if ($AllowedStartMinutes.Count -gt 0) {
+        $start = Get-AlignedStartTime -Session $session -Reference $now -AllowedMinutes $AllowedStartMinutes
+    }
     $finalSubject = if ([string]::IsNullOrWhiteSpace($Subject)) { $CategoryName } else { $Subject.Trim() }
     $appt = $outlook.CreateItem(1)
-    $appt.Subject=$finalSubject; $appt.Start=$now; $appt.End=$now.AddMinutes($mins)
+    $appt.Subject=$finalSubject; $appt.Start=$start; $appt.End=$start.AddMinutes($mins)
     $appt.Categories=$CategoryName; $appt.BusyStatus=2; $appt.ReminderSet=$false
     if ($Private) { $appt.Sensitivity=2 } else { $appt.Sensitivity=0 }
     $appt.Body = "Automatically created via script on $($now.ToString('yyyy-MM-dd HH:mm'))."

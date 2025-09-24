@@ -178,7 +178,8 @@ function Get-AlignedStartTime {
     $nearestPastEnd = $null
     $nearestPastDiff = [double]::PositiveInfinity
 
-    foreach ($item in @($windowItems)) {
+    $item = $windowItems.GetFirst()
+    while ($item) {
         try {
             if ($item.MessageClass -like "IPM.Appointment*") {
                 $end = $item.End
@@ -197,6 +198,7 @@ function Get-AlignedStartTime {
                 }
             }
         } catch {}
+        $item = $windowItems.GetNext()
     }
 
     if ($nearestFutureEnd) { return Get-NextAllowedStartOnOrAfter -Reference $nearestFutureEnd -AllowedMinutes $AllowedMinutes }

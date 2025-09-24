@@ -90,6 +90,34 @@ Outlook's `Restrict` API requires `MM/dd/yyyy HH:mm`. The script handles this fo
 - **No running appointment detected:** Ensure there's an event with Start ≤ now < End (recurrences supported).
 - **Dialog not focused:** The foreground fix is included; if desktop policies are strict, try running Stream Deck "as Administrator".
 
+## Architecture
+
+sequenceDiagram
+  autonumber
+  participant U as User / CLI
+  participant PS as Outlook_Timetracker.ps1
+  participant OL as Outlook Session
+  participant CAL as Calendar Items
+
+  Note over PS: v1.2 — start-time alignment flow
+  U->>PS: Request new tracking appointment
+  PS->>PS: Load/normalize AllowedStartMinutes (e.g., 0,15,30,45)
+  alt AllowedStartMinutes empty
+    PS->>PS: start = Now
+  else AllowedStartMinutes set
+    PS->>PS: candidate = Get-ClosestAllowedStart(Now, AllowedStartMinutes)
+    PS->>OL: Open session
+    PS->>CAL: Query items within LookAroundMinutes
+    alt Nearby event ended/ends soon
+      PS->>PS: start = Get-AlignedStartTime(..., favor immediate-after)
+    else No nearby items
+      PS->>PS: start = candidate
+    end
+  end
+  PS->>PS: end = start + duration (or ExtendMinutes)
+  PS->>OL: Create appointment (start, end)
+  OL-->>U: Appointment created
+
 ## Privacy
 
 - Appointments are created **locally** via Outlook COM (no cloud API).

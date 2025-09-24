@@ -90,6 +90,34 @@ Outlook-Restrict benötigt das Format `MM/dd/yyyy HH:mm`. Das Script kümmert si
 - **Kein laufender Termin erkannt**: Prüfe, ob ein Termin *jetzt* Start ≤ Jetzt < End hat (Serientermine unterstützt).
 - **Fokus liegt nicht auf dem Dialog**: Der *Foreground-Fix* ist eingebaut; bei exotischen Desktop-Policies ggf. Stream Deck auf „Als Administrator ausführen“ stellen.
 
+## Architektur
+
+sequenceDiagram
+  autonumber
+  participant U as User / CLI
+  participant PS as Outlook_Timetracker.ps1
+  participant OL as Outlook Session
+  participant CAL as Calendar Items
+
+  Note over PS: v1.2 — start-time alignment flow
+  U->>PS: Request new tracking appointment
+  PS->>PS: Load/normalize AllowedStartMinutes (e.g., 0,15,30,45)
+  alt AllowedStartMinutes empty
+    PS->>PS: start = Now
+  else AllowedStartMinutes set
+    PS->>PS: candidate = Get-ClosestAllowedStart(Now, AllowedStartMinutes)
+    PS->>OL: Open session
+    PS->>CAL: Query items within LookAroundMinutes
+    alt Nearby event ended/ends soon
+      PS->>PS: start = Get-AlignedStartTime(..., favor immediate-after)
+    else No nearby items
+      PS->>PS: start = candidate
+    end
+  end
+  PS->>PS: end = start + duration (or ExtendMinutes)
+  PS->>OL: Create appointment (start, end)
+  OL-->>U: Appointment created
+
 ## Datenschutz
 
 - Termine werden **lokal** via Outlook-COM erstellt (keine Cloud-API).

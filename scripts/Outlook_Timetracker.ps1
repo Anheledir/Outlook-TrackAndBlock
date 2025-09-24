@@ -154,14 +154,23 @@ function Get-AlignedStartTime {
 
     $calendar = $Session.GetDefaultFolder(9)
     $items = $calendar.Items
+    # Required to expand recurrences reliably in Restrict/Find scenarios
+    $items.Sort("[Start]")
     $items.IncludeRecurrences = $true
+
+    # Narrow to a tight window around the reference to avoid scanning entire mailbox
+    $lower = $Reference.AddMinutes(-$LookAroundMinutes)
+    $upper = $Reference.AddMinutes( $LookAroundMinutes)
+    $fmt = "MM/dd/yyyy HH:mm"
+    $filter = "[End] >= '{0}' AND [End] <= '{1}'" -f $lower.ToString($fmt), $upper.ToString($fmt)
+    $windowItems = $items.Restrict($filter)
 
     $nearestFutureEnd = $null
     $nearestFutureDiff = [double]::PositiveInfinity
     $nearestPastEnd = $null
     $nearestPastDiff = [double]::PositiveInfinity
 
-    foreach ($item in $items) {
+    foreach ($item in @($windowItems)) {
         try {
             if ($item.MessageClass -like "IPM.Appointment*") {
                 $end = $item.End

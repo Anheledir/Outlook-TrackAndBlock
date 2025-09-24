@@ -48,7 +48,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\
 - **Arguments (CLI — no GUI, 90 min "Deep Work"):**
 
 ~~~powershell
--NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Path\Outlook_Timetracker.ps1" -Subject "Deep Work" -StartMinutes 90
+-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Path\Outlook_Timetracker.ps1" -Subject 'Deep Work' -StartMinutes 90
 ~~~
 
 - **Arguments (extend only, +30 min):**
